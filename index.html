@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Proyección económica de trayectorias médicas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{
+  --paper:#FBF8F8; --surface:#FFFFFF; --ink:#1E2A44; --muted:#5A6479; --line:#E6DADC;
+  --grid-minor:rgba(214,120,138,.14); --grid-major:rgba(214,120,138,.30);
+  --ar:#23866A; --es:#2456A6; --rem:#7A4FB0; --focus:#2456A6;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#141A26; --surface:#1B2232; --ink:#E9ECF3; --muted:#A3ABBD; --line:#2C3446;
+    --grid-minor:rgba(230,130,150,.08); --grid-major:rgba(230,130,150,.18);
+    --ar:#4FC39E; --es:#6F9BE8; --rem:#B391E6; --focus:#6F9BE8;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#141A26; --surface:#1B2232; --ink:#E9ECF3; --muted:#A3ABBD; --line:#2C3446;
+  --grid-minor:rgba(230,130,150,.08); --grid-major:rgba(230,130,150,.18);
+  --ar:#4FC39E; --es:#6F9BE8; --rem:#B391E6; --focus:#6F9BE8;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--paper);color:var(--ink);
+  font-family:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:16px;line-height:1.5;font-variant-numeric:tabular-nums}
+.wrap{max-width:1180px;margin:0 auto;padding:40px 24px 64px}
+header{max-width:760px;margin-bottom:32px}
+h1{font-size:clamp(1.9rem,4.2vw,3rem);line-height:1.08;letter-spacing:-.025em;margin:0 0 14px;font-weight:800}
+.byline{margin:0 0 14px;font-weight:600;font-size:1rem}
+.byline a{color:var(--es);text-decoration-thickness:1px;text-underline-offset:3px}
+.lede{color:var(--muted);font-size:1.08rem;margin:0;max-width:66ch}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:28px;align-items:start}
+@media (max-width:920px){.layout{grid-template-columns:1fr}}
+.monitor{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px 20px 16px}
+.monitor-top{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;align-items:center;margin-bottom:12px}
+.legend{display:flex;flex-wrap:wrap;gap:16px;font-size:.92rem;font-weight:600}
+.legend span{display:inline-flex;align-items:center;gap:7px}
+.legend i{width:18px;height:3px;border-radius:2px;display:inline-block}
+.toggle{display:inline-flex;border:1px solid var(--line);border-radius:999px;padding:3px}
+.toggle button{font:inherit;font-size:.88rem;font-weight:600;border:0;background:transparent;color:var(--muted);padding:6px 14px;border-radius:999px;cursor:pointer}
+.toggle button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+.ecg{position:relative;height:380px;border-radius:8px;
+  background-color:transparent;
+  background-image:
+    linear-gradient(var(--grid-major) 1px,transparent 1px),
+    linear-gradient(90deg,var(--grid-major) 1px,transparent 1px),
+    linear-gradient(var(--grid-minor) 1px,transparent 1px),
+    linear-gradient(90deg,var(--grid-minor) 1px,transparent 1px);
+  background-size:50px 50px,50px 50px,10px 10px,10px 10px}
+@media (max-width:560px){.ecg{height:300px}}
+.readout{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;margin-top:18px;border-top:1px solid var(--line)}
+@media (max-width:560px){.readout{grid-template-columns:1fr}}
+.readout div{padding:14px 14px 4px 0}
+.readout div + div{padding-left:14px;border-left:1px solid var(--line)}
+@media (max-width:560px){.readout div + div{border-left:0;border-top:1px solid var(--line);padding-left:0}}
+.readout .name{font-weight:700;font-size:.95rem;display:flex;align-items:center;gap:8px}
+.readout .name i{width:10px;height:10px;border-radius:50%}
+.readout .big{font-size:1.65rem;font-weight:800;letter-spacing:-.02em;line-height:1.2;margin-top:4px}
+.readout .sub{color:var(--muted);font-size:.88rem}
+.verdict{margin:14px 0 0;font-size:.98rem;color:var(--ink)}
+aside.controls{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:6px 18px 18px}
+details{border-bottom:1px solid var(--line)}
+details:last-of-type{border-bottom:0}
+summary{cursor:pointer;list-style:none;padding:14px 0;font-weight:700;display:flex;align-items:center;gap:10px}
+summary::-webkit-details-marker{display:none}
+summary .dot{width:10px;height:10px;border-radius:50%;flex:none}
+summary::after{content:"+";margin-left:auto;color:var(--muted);font-weight:600}
+details[open] summary::after{content:"–"}
+.field{margin:0 0 14px}
+.field label{display:flex;justify-content:space-between;gap:10px;font-size:.9rem;color:var(--muted);margin-bottom:5px}
+.field label output{color:var(--ink);font-weight:700}
+input[type=range]{width:100%;accent-color:var(--ink)}
+.check{display:flex;gap:10px;align-items:flex-start;font-size:.92rem;margin:4px 0 14px}
+.check input{margin-top:4px;accent-color:var(--ink)}
+.hint{font-size:.82rem;color:var(--muted);margin:-8px 0 14px}
+.reset{font:inherit;font-weight:600;font-size:.9rem;margin-top:14px;width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);background:transparent;color:var(--ink);cursor:pointer}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.method{margin-top:48px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:32px;max-width:1000px}
+@media (max-width:760px){.method{grid-template-columns:1fr}}
+.method h2{font-size:1.2rem;margin:0 0 10px;letter-spacing:-.01em}
+.method p,.method li{color:var(--muted);font-size:.95rem;max-width:62ch}
+.method ul{padding-left:18px;margin:0}
+.method li{margin-bottom:6px}
+footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--line);color:var(--muted);font-size:.88rem}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>¿Cuánto rinde cada camino después de recibirse?</h1>
+    <p class="byline">Por <a href="https://www.linkedin.com/in/luna-ag%C3%BCero/" target="_blank" rel="noopener">Luna Agüero</a>, estudiante de Medicina (Universidad Nacional del Sur)</p>
+    <p class="lede">Proyección a diez años (2027–2036) del ingreso neto anual de una médica argentina según tres trayectorias: residencia en Argentina, MIR en España o trabajo remoto en health tech desde Argentina. Todos los supuestos son editables.</p>
+  </header>
+
+  <div class="layout">
+    <section class="monitor" aria-label="Gráfico de proyección">
+      <div class="monitor-top">
+        <div class="legend">
+          <span><i style="background:var(--ar)"></i>Residencia en Argentina</span>
+          <span><i style="background:var(--es)"></i>MIR en España</span>
+          <span><i style="background:var(--rem)"></i>Health tech remoto</span>
+        </div>
+        <div class="toggle" role="group" aria-label="Vista del gráfico">
+          <button type="button" id="vAnual" aria-pressed="true">Por año</button>
+          <button type="button" id="vAcum" aria-pressed="false">Acumulado</button>
+        </div>
+      </div>
+      <div class="ecg"><canvas id="chart" role="img" aria-label="Ingreso neto proyectado por trayectoria, en euros"></canvas></div>
+      <div class="readout" id="readout"></div>
+      <p class="verdict" id="verdict"></p>
+    </section>
+
+    <aside class="controls" aria-label="Supuestos del modelo">
+      <details open>
+        <summary><span class="dot" style="background:var(--muted)"></span>Contexto macro</summary>
+        <div class="field"><label for="fx">Tipo de cambio <output id="fx_o"></output></label>
+          <input type="range" id="fx" min="1000" max="3000" step="25"></div>
+        <div class="field"><label for="drift">Brecha salario vs. devaluación <output id="drift_o"></output></label>
+          <input type="range" id="drift" min="-15" max="15" step="1"></div>
+        <p class="hint">Positiva: los sueldos en pesos le ganan al dólar/euro. Negativa: el peso se devalúa más rápido que los aumentos.</p>
+        <label class="check"><input type="checkbox" id="ppa"><span>Ajustar por poder de compra en Argentina</span></label>
+        <div class="field"><label for="ppaf">Factor de costo de vida <output id="ppaf_o"></output></label>
+          <input type="range" id="ppaf" min="1" max="2.5" step="0.1"></div>
+      </details>
+      <details>
+        <summary><span class="dot" style="background:var(--ar)"></span>Residencia en Argentina</summary>
+        <div class="field"><label for="arRes">Residente, neto mensual <output id="arRes_o"></output></label>
+          <input type="range" id="arRes" min="800000" max="3000000" step="20000"></div>
+        <div class="field"><label for="arEsp">Especialista inicial, neto mensual <output id="arEsp_o"></output></label>
+          <input type="range" id="arEsp" min="1200000" max="6000000" step="50000"></div>
+        <div class="field"><label for="arG">Crecimiento real como especialista <output id="arG_o"></output></label>
+          <input type="range" id="arG" min="0" max="20" step="1"></div>
+        <div class="field"><label for="arY">Duración de la residencia <output id="arY_o"></output></label>
+          <input type="range" id="arY" min="3" max="5" step="1"></div>
+      </details>
+      <details>
+        <summary><span class="dot" style="background:var(--es)"></span>MIR en España</summary>
+        <div class="field"><label for="esD">Años hasta empezar el MIR <output id="esD_o"></output></label>
+          <input type="range" id="esD" min="1" max="4" step="1"></div>
+        <div class="field"><label for="esT">Ingreso anual en la transición <output id="esT_o"></output></label>
+          <input type="range" id="esT" min="0" max="20000" step="500"></div>
+        <div class="field"><label for="esC">Costos de homologación y traslado <output id="esC_o"></output></label>
+          <input type="range" id="esC" min="0" max="20000" step="500"></div>
+        <div class="field"><label for="esM">Residente MIR, neto anual con guardias <output id="esM_o"></output></label>
+          <input type="range" id="esM" min="18000" max="40000" step="500"></div>
+        <div class="field"><label for="esF">Adjunto inicial, neto anual <output id="esF_o"></output></label>
+          <input type="range" id="esF" min="25000" max="60000" step="500"></div>
+        <div class="field"><label for="esG">Crecimiento anual como adjunto <output id="esG_o"></output></label>
+          <input type="range" id="esG" min="0" max="12" step="1"></div>
+      </details>
+      <details>
+        <summary><span class="dot" style="background:var(--rem)"></span>Health tech remoto</summary>
+        <div class="field"><label for="rmI">Ingreso inicial, mensual <output id="rmI_o"></output></label>
+          <input type="range" id="rmI" min="500" max="6000" step="100"></div>
+        <div class="field"><label for="rmG">Crecimiento anual <output id="rmG_o"></output></label>
+          <input type="range" id="rmG" min="0" max="30" step="1"></div>
+        <div class="field"><label for="rmP">Guardias complementarias, neto mensual <output id="rmP_o"></output></label>
+          <input type="range" id="rmP" min="0" max="2000000" step="50000"></div>
+        <p class="hint">El ingreso remoto se cobra en moneda fuerte y se gasta en Argentina, por eso también recibe el ajuste por poder de compra.</p>
+      </details>
+      <button type="button" class="reset" id="reset">Restablecer supuestos</button>
+    </aside>
+  </div>
+
+  <section class="method">
+    <div>
+      <h2>Cómo funciona el modelo</h2>
+      <ul>
+        <li>Horizonte de diez años desde 2027, un año después del egreso.</li>
+        <li>Los sueldos argentinos se ingresan en pesos, se cuentan 13 pagos por año (aguinaldo) y se convierten a euros al tipo de cambio elegido.</li>
+        <li>La brecha salario vs. devaluación capta la dinámica argentina: si los sueldos siguen a la inflación pero el peso se devalúa más, el ingreso en euros cae año a año.</li>
+        <li>La ruta española incluye una etapa previa de homologación con ingresos reducidos y costos de traslado en el primer año.</li>
+        <li>El ajuste por poder de compra multiplica los ingresos gastados en Argentina para compararlos con el costo de vida en Madrid.</li>
+      </ul>
+    </div>
+    <div>
+      <h2>Fuentes de los valores iniciales</h2>
+      <ul>
+        <li>Residencia y planta en Argentina: grilla salarial CICOP, provincia de Buenos Aires, abril de 2026.</li>
+        <li>MIR y adjuntos en España: retribuciones de residentes de la Comunidad de Madrid 2026 y promedios publicados de facultativos especialistas.</li>
+        <li>Tipo de cambio e inflación: cotización EUR/ARS de junio de 2026 e inflación interanual de marzo de 2026 (32,6%).</li>
+        <li>Health tech remoto: rangos de referencia para perfiles clínicos junior en empresas de informática en salud.</li>
+      </ul>
+      <p>Es un modelo exploratorio para comparar escenarios, no un asesoramiento financiero.</p>
+    </div>
+  </section>
+
+  <footer>Modelo desarrollado por <a href="https://www.linkedin.com/in/luna-ag%C3%BCero/" target="_blank" rel="noopener" style="color:inherit">Luna Agüero</a>, estudiante de Medicina (UNS), con asistencia de IA. Última actualización de supuestos: 2026.</footer>
+</div>
+
+<script>
+(function(){
+  const DEFAULTS={fx:1650,drift:0,ppa:false,ppaf:1.8,arRes:1640000,arEsp:2600000,arG:8,arY:4,
+    esD:2,esT:6000,esC:5000,esM:27000,esF:34000,esG:4,rmI:1800,rmG:12,rmP:0};
+  const KEY='proyeccion-trayectorias-v1';
+  let s={...DEFAULTS};
+  try{const saved=JSON.parse(localStorage.getItem(KEY)||'null');if(saved)s={...DEFAULTS,...saved};}catch(e){}
+  let view='anual';
+  const years=Array.from({length:10},(_,i)=>2027+i);
+  const eur=v=>new Intl.NumberFormat('es-AR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(v);
+  const ars=v=>'$'+new Intl.NumberFormat('es-AR',{maximumFractionDigits:0}).format(v);
+  const fmt={fx:v=>ars(v)+' por €',drift:v=>(v>0?'+':'')+v+'% anual',ppaf:v=>'×'+Number(v).toFixed(1),
+    arRes:ars,arEsp:ars,arG:v=>v+'%',arY:v=>v+' años',esD:v=>v+(v==1?' año':' años'),esT:eur,esC:eur,
+    esM:eur,esF:eur,esG:v=>v+'%',rmI:eur,rmG:v=>v+'%',rmP:ars};
+
+  function compute(){
+    const d=1+s.drift/100, ppa=s.ppa?s.ppaf:1;
+    const ar=[],es=[],rm=[];
+    years.forEach((_,i)=>{
+      const drift=Math.pow(d,i);
+      const arMonthly=i<s.arY? s.arRes : s.arEsp*Math.pow(1+s.arG/100,i-s.arY);
+      ar.push(arMonthly*13/s.fx*drift*ppa);
+      let e;
+      if(i<s.esD) e=s.esT-(i===0?s.esC:0);
+      else if(i<s.esD+4) e=s.esM;
+      else e=s.esF*Math.pow(1+s.esG/100,i-s.esD-4);
+      es.push(e);
+      const remote=s.rmI*12*Math.pow(1+s.rmG/100,i);
+      const extra=s.rmP*13/s.fx*drift;
+      rm.push((remote+extra)*ppa);
+    });
+    return {ar,es,rm};
+  }
+  const cum=a=>a.reduce((acc,v)=>{acc.push((acc.length?acc[acc.length-1]:0)+v);return acc;},[]);
+
+  const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  let chart;
+  function draw(){
+    const r=compute();
+    const data=view==='anual'?r:{ar:cum(r.ar),es:cum(r.es),rm:cum(r.rm)};
+    const ds=[['Residencia en Argentina',data.ar,'--ar',[]],['MIR en España',data.es,'--es',[]],['Health tech remoto',data.rm,'--rem',[6,4]]]
+      .map(([label,d,c,dash])=>({label,data:d.map(v=>Math.round(v)),borderColor:css(c),backgroundColor:css(c),
+        borderWidth:2.5,borderDash:dash,pointRadius:3,pointHoverRadius:5,tension:.25}));
+    const ink=css('--ink'),muted=css('--muted');
+    if(chart){chart.data.datasets=ds;chart.options.scales.x.ticks.color=muted;chart.options.scales.y.ticks.color=muted;chart.update();}
+    else{
+      chart=new Chart(document.getElementById('chart'),{type:'line',data:{labels:years,datasets:ds},
+        options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+          plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+c.dataset.label+': '+eur(c.parsed.y)}}},
+          scales:{x:{grid:{display:false},ticks:{color:muted,font:{family:'Hanken Grotesk'}}},
+            y:{grid:{display:false},ticks:{color:muted,font:{family:'Hanken Grotesk'},callback:v=>Math.abs(v)>=1000?(v/1000)+' k€':v+' €'}}}}});
+    }
+    const tot={ar:cum(r.ar)[9],es:cum(r.es)[9],rm:cum(r.rm)[9]};
+    const rows=[['Residencia en Argentina','--ar','ar'],['MIR en España','--es','es'],['Health tech remoto','--rem','rm']];
+    document.getElementById('readout').innerHTML=rows.map(([n,c,k])=>
+      `<div><div class="name"><i style="background:var(${c})"></i>${n}</div><div class="big">${eur(tot[k])}</div><div class="sub">acumulado a 10 años · ${eur(r[k][9])} en 2036</div></div>`).join('');
+    const best=rows.slice().sort((a,b)=>tot[b[2]]-tot[a[2]])[0];
+    let cross='';
+    const i=r.es.findIndex((v,idx)=>v>r.ar[idx]&&idx>=s.esD);
+    if(i>=0) cross=` El MIR supera el ingreso anual de la residencia argentina desde ${years[i]}.`;
+    document.getElementById('verdict').textContent=`Con estos supuestos, ${({ar:'la residencia en Argentina',es:'el MIR en España',rm:'el trabajo remoto en health tech'})[best[2]]} acumula más ingreso en diez años${s.ppa?' (ajustado por poder de compra)':' (en euros nominales)'}.`+cross;
+  }
+
+  function sync(){
+    Object.keys(DEFAULTS).forEach(k=>{
+      const el=document.getElementById(k); if(!el) return;
+      if(el.type==='checkbox') el.checked=s[k]; else el.value=s[k];
+      const o=document.getElementById(k+'_o'); if(o) o.textContent=fmt[k](s[k]);
+    });
+    document.getElementById('ppaf').disabled=!s.ppa;
+  }
+  Object.keys(DEFAULTS).forEach(k=>{
+    const el=document.getElementById(k); if(!el) return;
+    el.addEventListener('input',()=>{
+      s[k]=el.type==='checkbox'?el.checked:Number(el.value);
+      sync();draw();
+      try{localStorage.setItem(KEY,JSON.stringify(s));}catch(e){}
+    });
+  });
+  document.getElementById('reset').addEventListener('click',()=>{
+    s={...DEFAULTS};try{localStorage.removeItem(KEY);}catch(e){}sync();draw();
+  });
+  const bA=document.getElementById('vAnual'),bC=document.getElementById('vAcum');
+  function setView(v){view=v;bA.setAttribute('aria-pressed',v==='anual');bC.setAttribute('aria-pressed',v==='acum');draw();}
+  bA.addEventListener('click',()=>setView('anual'));bC.addEventListener('click',()=>setView('acum'));
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{if(chart){chart.destroy();chart=null;}draw();});
+  sync();draw();
+})();
+</script>
+</body>
+</html>
