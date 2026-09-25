@@ -6,7 +6,7 @@ Calculadora web interactiva que compara, a diez años (2027–2036), el ingreso 
 - Formación MIR en España, previa homologación del título.
 - Trabajo remoto en health tech desde Argentina, con ingresos en moneda fuerte.
 
-**Demo:** https://lunaaguero.github.io/proyeccion-medica/
+**Demo:** https://lunaaguero.github.io/Proyeccion-Medica/
 
 ## El problema
 
